@@ -6,8 +6,8 @@ import models,schemas,hashing,jwt_token
 from models import User
 from schemas import UserCreate,Token
 from database import engine,get_db
-
-models.Base.metadata.create_all(bind=engine)
+from typing import List
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -26,6 +26,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
         
     return user
+
+def get_admin_user(current_user:User=Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have the permission to perform this action"
+        )
+    return current_user
+
+@app.get("/users/all",response_model=List[schemas.UserResponse])
+def get_all_user(db:Session=Depends(get_db),admin:User=Depends(get_admin_user)):
+    users=db.query(User).all()
+    return users
 
 @app.post('/signup')
 def signup(user: UserCreate,db:Session = Depends(get_db)):
@@ -72,3 +85,17 @@ def login(request: OAuth2PasswordRequestForm = Depends(),db:Session = Depends(ge
 @app.get("/users/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@app.delete("/users/delete/{user_id}")
+def delete_user(user_id:int,db:Session=Depends(get_db),admin:User=Depends(get_admin_user)):
+    user_to_delete=db.query(User).filter(User.id==user_id).first()
+
+    if user_to_delete is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found!"
+        )
+    db.delete(user_to_delete)
+    db.commit()
+
+    return {"msg":f"User {user_id} deleted successfully"}
