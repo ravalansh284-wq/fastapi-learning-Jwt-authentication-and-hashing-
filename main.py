@@ -3,7 +3,7 @@ from fastapi import FastAPI,Depends,HTTPException,status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 import models,schemas,hashing,jwt_token
-from models import User
+from models import User,UserRole
 from schemas import UserCreate,Token
 from database import engine,get_db
 from typing import List
@@ -28,12 +28,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 def get_admin_user(current_user:User=Depends(get_current_user)):
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have the permission to perform this action"
-        )
+    user_roles_names=[link.role.name for link in current_user.role_links]
+    if "Admin" not in user_roles_names:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
     return current_user
+@app.get('/')
+def home():
+    return {"message":"Welcome!"}
+
 
 @app.get("/users/all",response_model=List[schemas.UserResponse])
 def get_all_user(db:Session=Depends(get_db),admin:User=Depends(get_admin_user)):
@@ -59,6 +62,13 @@ def signup(user: UserCreate,db:Session = Depends(get_db)):
 
     db.add(new_user)
     db.commit()
+    db.refresh(new_user)
+
+    user_role = db.query(models.Role).filter(models.Role.name=="User").first()
+    if user_role:
+        new_link = models.UserRole(user_id=new_user.id,role_id=user_role.id)
+        db.add(new_link)
+        db.commit()
 
     return {"msg":"User created successfully"}
 
