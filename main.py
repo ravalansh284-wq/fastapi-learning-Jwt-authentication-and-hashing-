@@ -109,3 +109,27 @@ def delete_user(user_id:int,db:Session=Depends(get_db),admin:User=Depends(get_ad
     db.commit()
 
     return {"msg":f"User {user_id} deleted successfully"}
+@app.put("/promote/{username}")
+def promote_user(username:str,db:Session=Depends(get_db),current_admin:User=Depends(get_admin_user)):
+    user_to_promote=db.query(User).filter(User.username==username).first()
+
+    if not user_to_promote:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found!"
+        )
+    
+    admin_role=db.query(models.Role).filter(models.Role.name=="Admin").first()
+    existing_link=db.query(models.UserRole).filter(
+        models.UserRole.user_id==user_to_promote.id,
+        models.UserRole.role_id==admin_role.id
+    ).first()
+
+    if existing_link:
+        return {"msg":f"{username} is already an Admin"}
+    
+    new_link=models.UserRole(user_id=user_to_promote.id,role_id=admin_role.id)
+    db.add(new_link)
+    db.commit()
+
+    return {"msg":f"Success {username} has been promoted to Admin"}
