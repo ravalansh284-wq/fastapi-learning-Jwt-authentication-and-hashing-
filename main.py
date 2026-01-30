@@ -3,11 +3,10 @@ from fastapi import FastAPI,Depends,HTTPException,status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 import models,schemas,hashing,jwt_token
-from models import User,UserRole
+from models import User
 from schemas import UserCreate,Token
-from database import engine,get_db
+from database import get_db
 from typing import List
-# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -133,3 +132,34 @@ def promote_user(username:str,db:Session=Depends(get_db),current_admin:User=Depe
     db.commit()
 
     return {"msg":f"Success {username} has been promoted to Admin"}
+
+@app.post("/posts",response_model=schemas.PostResponse)
+def create_post(post: schemas.PostCreate,db:Session=Depends(get_db),current_user:models.User=Depends(get_current_user)):
+    new_post=models.Post(
+        title=post.title,
+        content=post.content,
+        owner_id=current_user.id
+    )
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
+    return new_post
+
+@app.get('/posts',response_model=List[schemas.PostResponse])
+def get_posts(db:Session=Depends(get_db)):
+    posts=db.query(models.Post).all()
+    return posts
+
+@app.delete('/post/{post_id}')
+def delete_post(post_id:int,db:Session=Depends(get_db),current_user:User=Depends(get_current_user)):
+    post=db.query(models.Post).filter(models.Post.id==post_id).first()
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    if post.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Not authorized to perform requested action")
+    
+    db.delete(post)
+    db.commit()
+
+    return {"msg": "Post deleted successfully"}

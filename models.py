@@ -9,6 +9,7 @@ class User(Base):
     email=Column(String,unique=True,index=True)
     hashed_password=Column(String)
     role_links=relationship("UserRole",back_populates="user")
+    posts=relationship("Post",back_populates="owner")
 
 
 class Role(Base):
@@ -25,5 +26,12 @@ class UserRole(Base):
     user=relationship("User",back_populates="role_links")
     role=relationship("Role",back_populates="user_links")
 
+class Post(Base):
+    __tablename__="posts"
+    id=Column(Integer,primary_key=True,index=True)
+    title=Column(String,index=True)
+    content=Column(String)
+    owner_id = Column(Integer,ForeignKey("users.id"))
+    owner=relationship("User",back_populates="posts")
 
 

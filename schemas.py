@@ -1,8 +1,23 @@
 from pydantic import BaseModel,EmailStr
 from typing import List,Optional
 
+
+class PostBase(BaseModel):
+    title: str
+    content: str
+
+class PostCreate(PostBase):
+    pass
+
+class PostResponse(PostBase):
+    id: int
+    owner_id: int
+
+    class Config:
+        from_attributes = True
+
 class RoleBase(BaseModel):
-    name:str
+    name: str
     class Config:
         from_attributes = True
 
@@ -25,5 +40,6 @@ class UserResponse(BaseModel):
     username: str
     email: str
     role_links: List[UserRoleResponse] = []
+    posts: List[PostResponse]
     class Config:
         from_attributes = True

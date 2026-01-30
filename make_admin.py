@@ -26,4 +26,4 @@ def make_user_admin(username_to_promote):
     db.close()
 
 if __name__ == "__main__":
-    make_user_admin("testuser")
+    make_user_admin("ansh")
